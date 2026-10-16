@@ -1,5 +1,5 @@
 // Use an integer for version numbers
-version = 2
+version = 3
 
 cloudstream {
     description = "Anime from anikoto.cz. Filter tags in search: #action #2024 #dub #movie #airing #top (see GitHub README for all)"

@@ -11,6 +11,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import java.net.URI
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -55,22 +56,54 @@ open class MegaPlay : ExtractorApi() {
             sources.enc?.let { decryptSources(it) }?.let(::addAll)
         }.distinct()
 
-        // Master playlist; the player handles variant/quality selection itself.
-        files.forEach { file ->
-            callback(
-                newExtractorLink(name, linkName, file, ExtractorLinkType.M3U8) {
-                    this.referer = "$mainUrl/"
-                    this.quality = Qualities.Unknown.value
-                    this.headers = mapOf("Origin" to mainUrl)
-                }
-            )
-        }
+        files.forEach { file -> emitQualities(file, linkName, callback) }
 
         sources.tracks?.filter { it.kind == null || it.kind == "captions" || it.kind == "subtitles" }
             ?.forEach { track ->
                 val file = track.file ?: return@forEach
                 subtitleCallback(newSubtitleFile(track.label ?: "Unknown", file))
             }
+    }
+
+    /**
+     * Emits one link per variant (1080p / 720p / 480p …) so the quality can be picked in the
+     * player's source list, plus an "Auto" (adaptive master playlist) link when there are several.
+     */
+    private suspend fun emitQualities(master: String, linkName: String, callback: (ExtractorLink) -> Unit) {
+        val headers = mapOf("Origin" to mainUrl)
+        suspend fun emit(url: String, label: String, quality: Int) = callback(
+            newExtractorLink(name, "$linkName $label", url, ExtractorLinkType.M3U8) {
+                this.referer = "$mainUrl/"
+                this.quality = quality
+                this.headers = headers
+            }
+        )
+
+        val playlist = runCatching { app.get(master, referer = "$mainUrl/", headers = headers).text }.getOrNull()
+        val variants = playlist?.let { parseVariants(master, it) }.orEmpty()
+
+        when (variants.size) {
+            0 -> emit(master, "Auto", Qualities.Unknown.value)
+            1 -> variants.first().let { (height, url) -> emit(url, "${height}p", height) }
+            else -> {
+                emit(master, "Auto", Qualities.Unknown.value)
+                variants.forEach { (height, url) -> emit(url, "${height}p", height) }
+            }
+        }
+    }
+
+    /** Height -> absolute variant URL, highest first. */
+    private fun parseVariants(masterUrl: String, playlist: String): List<Pair<Int, String>> {
+        val lines = playlist.lines().map { it.trim() }
+        return lines.mapIndexedNotNull { i, line ->
+            if (!line.startsWith("#EXT-X-STREAM-INF")) return@mapIndexedNotNull null
+            val height = Regex("""RESOLUTION=\d+x(\d+)""").find(line)?.groupValues?.get(1)?.toIntOrNull()
+                ?: Regex("""NAME="(\d+)p"""").find(line)?.groupValues?.get(1)?.toIntOrNull()
+                ?: return@mapIndexedNotNull null
+            val uri = lines.drop(i + 1).firstOrNull { it.isNotEmpty() && !it.startsWith("#") }
+                ?: return@mapIndexedNotNull null
+            height to URI(masterUrl).resolve(uri).toString()
+        }.distinctBy { it.first }.sortedByDescending { it.first }
     }
 
     private suspend fun decryptSources(enc: String): List<String>? {

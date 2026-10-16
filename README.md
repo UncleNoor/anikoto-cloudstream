@@ -40,6 +40,7 @@ Examples: `#action #2024 #dub`, `slime #isekai`, `#romance #movie #top`, `#slice
 - Full details: poster, banner, synopsis, genres, year, status, duration, recommendations, MAL id (for tracking sync)
 - Separate **Sub** and **Dub** episode lists
 - Streams from every Anikoto server (HD-1, HD-2, Vidstream-1/2), all served by the MegaPlay player, deduplicated
+- Quality selection: each quality the stream offers (1080p / 720p / 480p …) is its own source, plus "Auto"
 - All subtitle tracks the player provides (often 40+ languages on Crunchyroll-sourced shows)
 
 ## How it works
