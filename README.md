@@ -7,12 +7,12 @@ A [CloudStream 3](https://github.com/recloudstream/cloudstream) extension for **
 In CloudStream: **Settings → Extensions → Add repository**, and paste:
 
 ```
-https://raw.githubusercontent.com/OWNER/REPO/builds/repo.json
+https://raw.githubusercontent.com/UncleNoor/anikoto-cloudstream/builds/repo.json
 ```
 
 Then open the repository and install **AnikotoProvider**.
 
-(`OWNER/REPO` is this GitHub repository. The `builds` branch is created by the GitHub Actions workflow on every push to `main`.)
+(The `builds` branch is rebuilt by GitHub Actions on every push to `main`.)
 
 ## Features
 
