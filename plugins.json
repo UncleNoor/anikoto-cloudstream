@@ -1,0 +1,24 @@
+[
+    {
+        "iconUrl": "https://anikoto.cz/AnikotoTheme/assets/images/favicon.png",
+        "fileHash": "sha256-27a46a2992c8144faaccbe3888d2b7a1f1180d36a715da07795aebfd0ededcd5",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/UncleNoor/anikoto-cloudstream",
+        "fileSize": 45735,
+        "status": 1,
+        "language": "en",
+        "authors": [
+            "gamernoor24"
+        ],
+        "tvTypes": [
+            "Anime",
+            "AnimeMovie",
+            "OVA"
+        ],
+        "version": 3,
+        "internalName": "AnikotoProvider",
+        "description": "Anime from anikoto.cz. Filter tags in search: #action #2024 #dub #movie #airing #top (see GitHub README for all)",
+        "url": "https://raw.githubusercontent.com/UncleNoor/anikoto-cloudstream/builds/AnikotoProvider.cs3",
+        "name": "AnikotoProvider"
+    }
+]

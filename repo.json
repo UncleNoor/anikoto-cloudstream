@@ -1,0 +1,8 @@
+{
+  "name": "Anikoto",
+  "description": "CloudStream extension for anikoto.cz",
+  "manifestVersion": 1,
+  "pluginLists": [
+    "https://raw.githubusercontent.com/UncleNoor/anikoto-cloudstream/builds/plugins.json"
+  ]
+}
