@@ -1,8 +1,8 @@
 // Use an integer for version numbers
-version = 1
+version = 2
 
 cloudstream {
-    description = "Anime from anikoto.cz (sub & dub, HLS via MegaPlay)"
+    description = "Anime from anikoto.cz. Filter tags in search: #action #2024 #dub #movie #airing #top (see GitHub README for all)"
     authors = listOf("gamernoor24")
 
     /**

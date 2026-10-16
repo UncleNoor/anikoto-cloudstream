@@ -14,10 +14,29 @@ Then open the repository and install **AnikotoProvider**.
 
 (The `builds` branch is rebuilt by GitHub Actions on every push to `main`.)
 
+## Search & filter tags
+
+Type normal words to search by name. Suggestions appear as you type.
+Add `#tags` to filter (mix as many as you like, with or without a name):
+
+| Filter | Tags |
+| --- | --- |
+| Genre | any genre name: `#action` `#romance` `#isekai` `#slice-of-life` `#sci-fi` `#sports` `#horror` `#mecha` … |
+| Year | `#2024`, `#2010` … |
+| Season | `#winter` `#spring` `#summer` `#fall` |
+| Sub / Dub | `#sub` `#dub` |
+| Type | `#tv` `#movie` `#ova` `#ona` `#special` `#short` `#music` |
+| Status | `#airing` `#finished` `#upcoming` |
+| Age rating | `#g` `#pg` `#pg13` `#r` `#rplus` `#rx` |
+| Sort | `#top` (score) `#popular` `#latest` `#new` `#az` `#release` `#episodes` |
+
+Examples: `#action #2024 #dub`, `slime #isekai`, `#romance #movie #top`, `#slice-of-life #airing`.
+
 ## Features
 
-- Home page rows: Latest Updated, New Releases, Most Viewed, Currently Airing, Movies, Upcoming
-- Search, with pagination
+- Home page rows: Latest Updated, New Releases, Most Viewed, Currently Airing, Top Rated, Movies, Upcoming,
+  plus genre rows (Action, Romance, Comedy, Fantasy, Isekai, Slice of Life, Sports, Horror)
+- Search with live suggestions, pagination and `#tag` filters (above)
 - Full details: poster, banner, synopsis, genres, year, status, duration, recommendations, MAL id (for tracking sync)
 - Separate **Sub** and **Dub** episode lists
 - Streams from every Anikoto server (HD-1, HD-2, Vidstream-1/2), all served by the MegaPlay player, deduplicated

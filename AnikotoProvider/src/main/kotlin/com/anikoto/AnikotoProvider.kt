@@ -9,14 +9,14 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
-import java.net.URLEncoder
+import org.jsoup.parser.Parser
 
 class AnikotoProvider : MainAPI() {
     override var mainUrl = "https://anikoto.cz"
     override var name = "Anikoto"
     override var lang = "en"
     override val hasMainPage = true
-    override val hasQuickSearch = false
+    override val hasQuickSearch = true
     override val supportedTypes = setOf(TvType.Anime, TvType.AnimeMovie, TvType.OVA)
 
     private val megaPlay = MegaPlay()
@@ -27,12 +27,22 @@ class AnikotoProvider : MainAPI() {
         "new-release" to "New Releases",
         "most-viewed" to "Most Viewed",
         "status/currently-airing" to "Currently Airing",
+        "filter?keyword=&sort=score" to "Top Rated",
         "type/movie" to "Movies",
         "status/not-yet-aired" to "Upcoming",
+        "genre/action" to "Action",
+        "genre/romance" to "Romance",
+        "genre/comedy" to "Comedy",
+        "genre/fantasy" to "Fantasy",
+        "genre/isekai" to "Isekai",
+        "genre/slice-of-life" to "Slice of Life",
+        "genre/sports" to "Sports",
+        "genre/horror" to "Horror",
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val doc = app.get("$mainUrl/${request.data}?page=$page").document
+        val sep = if (request.data.contains("?")) "&" else "?"
+        val doc = app.get("$mainUrl/${request.data}${sep}page=$page").document
         val items = doc.select("#list-items .item").mapNotNull { it.toSearchResult() }
         val hasNext = doc.selectFirst("ul.pagination a[rel=next]") != null
         return newHomePageResponse(request.name, items, hasNext)
@@ -41,17 +51,51 @@ class AnikotoProvider : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> = search(query, 1).items
 
     override suspend fun search(query: String, page: Int): SearchResponseList {
-        val q = URLEncoder.encode(query, "UTF-8")
-        val doc = app.get("$mainUrl/filter?keyword=$q&page=$page").document
+        val genres = if (SearchFilters.hasTags(query)) genreIds() else emptyMap()
+        val doc = app.get("$mainUrl/filter?" + SearchFilters.buildQuery(query, genres, page)).document
         val items = doc.select("#list-items .item").mapNotNull { it.toSearchResult() }
         val hasNext = doc.selectFirst("ul.pagination a[rel=next]") != null
         return newSearchResponseList(items, hasNext)
     }
 
+    /** Live suggestions while typing; tag queries go straight to the full filter search. */
+    override suspend fun quickSearch(query: String): List<SearchResponse> {
+        if (SearchFilters.hasTags(query)) return search(query, 1).items
+        val html = app.get(
+            "$mainUrl/ajax/anime/search",
+            params = mapOf("keyword" to query),
+            headers = xhr
+        ).parsedSafe<QuickSearchResponse>()?.result?.html ?: return emptyList()
+        return Jsoup.parse(html).select("a.item").mapNotNull { item ->
+            val title = item.selectFirst(".name")?.text()?.let(::cleanTitle) ?: return@mapNotNull null
+            val type = item.select(".meta .dot").map { it.text().trim() }
+                .firstOrNull { it.lowercase() in setOf("tv", "movie", "ova", "ona", "special", "tv special") }
+            newAnimeSearchResponse(title, fixUrl(item.attr("href")).substringBefore("/ep-"), getType(type)) {
+                posterUrl = item.selectFirst("img")?.attr("src")
+            }
+        }
+    }
+
+    /** Genre name (normalized) -> anikoto genre id, read once from the filter form. */
+    private suspend fun genreIds(): Map<String, String> {
+        cachedGenres?.let { return it }
+        val doc = runCatching { app.get("$mainUrl/filter").document }.getOrNull() ?: return emptyMap()
+        val map = doc.select("input[name=genre[]]").mapNotNull { input ->
+            val label = input.parent()?.attr("title")?.ifBlank { null }
+                ?: input.attr("id").removePrefix("genre-")
+            input.attr("value").takeIf { it.isNotBlank() }?.let { SearchFilters.norm(label) to it }
+        }.toMap()
+        if (map.isNotEmpty()) cachedGenres = map
+        return map
+    }
+
+    // Some titles are double-escaped on the site ("&amp;amp;").
+    private fun cleanTitle(s: String) = Parser.unescapeEntities(s.trim(), false)
+
     private fun Element.toSearchResult(): SearchResponse? {
         val link = selectFirst("a.name") ?: return null
         val href = fixUrl(link.attr("href")).substringBefore("/ep-")
-        val title = link.text().trim().ifBlank { return null }
+        val title = cleanTitle(link.text()).ifBlank { return null }
         val poster = selectFirst(".poster img")?.attr("src")
         val sub = selectFirst(".ep-status.sub span")?.text()?.trim()?.toIntOrNull()
         val dub = selectFirst(".ep-status.dub span")?.text()?.trim()?.toIntOrNull()
@@ -70,7 +114,7 @@ class AnikotoProvider : MainAPI() {
             ?: throw ErrorLoadingException("Anime id not found")
         val info = doc.selectFirst("#w-info") ?: doc
         val titleEl = info.selectFirst("h1.title")
-        val title = titleEl?.text()?.trim() ?: doc.title()
+        val title = titleEl?.text()?.let(::cleanTitle) ?: doc.title()
         val poster = info.selectFirst(".binfo .poster img")?.attr("src")
         val banner = doc.selectFirst("#player")?.attr("style")
             ?.let { Regex("""url\(['"]?(.*?)['"]?\)""").find(it)?.groupValues?.get(1) }
@@ -140,7 +184,7 @@ class AnikotoProvider : MainAPI() {
 
     private fun Element.toSideResult(): SearchResponse? {
         val href = fixUrl(attr("href")).substringBefore("/ep-")
-        val title = selectFirst(".name")?.text()?.trim()?.ifBlank { null } ?: return null
+        val title = selectFirst(".name")?.text()?.let(::cleanTitle)?.ifBlank { null } ?: return null
         return newAnimeSearchResponse(title, href, TvType.Anime) {
             posterUrl = selectFirst("img")?.attr("src")
         }
@@ -205,6 +249,8 @@ class AnikotoProvider : MainAPI() {
     }
 
     companion object {
+        @Volatile
+        private var cachedGenres: Map<String, String>? = null
         private val SUB_TYPES = setOf("sub", "sub-1", "hsub", "softsub", "raw")
         private val DUB_TYPES = setOf("dub", "dub-1")
     }
@@ -213,6 +259,12 @@ class AnikotoProvider : MainAPI() {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     data class AjaxResponse(val status: Int? = null, val result: String? = null)
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    data class QuickSearchResponse(val status: Int? = null, val result: QuickSearchResult? = null)
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    data class QuickSearchResult(val html: String? = null)
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     data class ServerResponse(val status: Int? = null, val result: ServerResult? = null)
